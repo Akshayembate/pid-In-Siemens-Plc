@@ -1,0 +1,82 @@
+﻿FUNCTION "PIDController" : LReal
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_INPUT 
+      setPoint : LReal;
+      processVariable : LReal;
+      Kp : Real;
+      Ki : Real;
+      Kd : Real;
+      deadBand : UInt;
+      clock : Bool;
+   END_VAR
+
+   VAR_TEMP 
+      derivative : LReal;
+      Error : LReal;
+      integral : LReal;
+      previousError : LReal;
+      output : LReal;
+      error1 : LReal;
+      error2 : LReal;
+      filteredProcessVariable : LReal;
+      alpha : LReal;
+   END_VAR
+
+
+BEGIN
+	// code for PID Controller
+	// Apply low-pass filter TO process variable
+	#alpha := 0.1;
+	#filteredProcessVariable := #alpha * #processVariable + (1 - #alpha) * #filteredProcessVariable;
+	
+	// Calculate error
+	#Error := #setPoint - #processVariable;
+	
+	// Handle the wrap-around error
+	#error1 := #Error;
+	#error2 := #Error;
+	
+	 // Adjust for wrap-around
+	IF #error1 > 180.0 THEN
+	    #error1 := #error1 - 360.0;
+	END_IF;
+	
+	IF #error1 < -180.0 THEN
+	    #error1 := #error1 + 360.0;
+	END_IF;
+	
+	// Select the smallest absolute error
+	IF ABS(#error1) < ABS(#error2) THEN
+	    #Error := #error1;
+	ELSE
+	    #Error := #error2;
+	END_IF; 
+	
+	// Apply deadband
+	IF ABS(#Error) < #deadBand THEN
+	    #Error := 0.0;
+	END_IF; 
+	
+	IF #Error > 180 THEN
+	    #Error := #Error - 360;
+	    
+	ELSIF #Error < -180 THEN
+	    #Error := #Error + 360;
+	END_IF;
+	// Calculate integral
+	#integral := #integral + #Error ;
+	
+	// Calculate derivative
+	#derivative := (#Error - #previousError);
+	
+	// Calculate output
+	#output := (#Kp * #Error) + (#Ki * #integral) + (#Kd * #derivative);
+	
+	// Return the control signal
+	#PIDController := #output;
+	
+	// Save current error as previous error for next iteration
+	#previousError := #Error;
+END_FUNCTION
+
